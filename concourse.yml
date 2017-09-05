@@ -1,0 +1,85 @@
+---
+name: concourse
+
+releases:
+- name: concourse
+  version: latest
+- name: garden-runc
+  version: latest
+
+stemcells:
+- alias: trusty
+  os: ubuntu-trusty
+  version: latest
+
+instance_groups:
+- name: web
+  instances: ((ATC_WEB_INSTANCES))
+  vm_type: ((ATC_WEB_VM_TYPE))
+  stemcell: trusty
+  azs: [((CONCOURSE_AZ_NAME))]
+  networks: [{name: ((CONCOURSE_NW_NAME)), static_ips: [((ATC_STATIC_IPS))], default: [dns, gateway]}]
+  jobs:
+  - name: atc
+    release: concourse
+    properties:
+      external_url: ((CONCOURSE_EXTERNAL_URL))
+      basic_auth_username: ((CONCOURSE_ADMIN_USERNAME))
+      basic_auth_password: ((CONCOURSE_ADMIN_PASSWORD))
+      postgresql_database: &atc_db atc
+      bind_port: 80
+      vault:
+        path_prefix: ((CONCOURSE_VAULT_MOUNT))
+        url: ((VAULT_ADDR))
+        auth:
+          client_token: ((CLIENT_TOKEN))
+          # backend: ((BACKEND_ROLE))
+          # params:
+          #   role_id: ((ROLE_ID))
+          #   secret_id: ((SECRET_ID))
+  - name: tsa
+    release: concourse
+    properties: {}
+
+- name: db
+  instances: ((CONCOURSE_DB_INSTANCES))
+  vm_type: ((CONCOURSE_DB_VM_TYPE))
+  stemcell: trusty
+  persistent_disk_type: ((CONCOURSE_DB_PERSISTENT_DISK_TYPE))
+  azs: [((CONCOURSE_AZ_NAME))]
+  networks: [{name: ((CONCOURSE_NW_NAME)), static_ips: [((DB_STATIC_IPS))], default: [dns, gateway]}]
+  jobs:
+  - name: postgresql
+    release: concourse
+    properties:
+      databases:
+      - name: *atc_db
+        role: atc
+        password: password
+
+- name: worker
+  instances: ((CONCOURSE_WORKER_INSTANCES))
+  vm_type: ((CONCOURSE_WORKER_VM_TYPE))
+  stemcell: trusty
+  azs: [((CONCOURSE_AZ_NAME))]
+  networks: [{name: ((CONCOURSE_NW_NAME)), static_ips: [((WORKER_STATIC_IPS))], default: [dns, gateway]}]
+  jobs:
+  - name: groundcrew
+    release: concourse
+    properties: {}
+  - name: baggageclaim
+    release: concourse
+    properties: {}
+  - name: garden
+    release: garden-runc
+    properties:
+      garden:
+        listen_network: tcp
+        listen_address: 0.0.0.0:7777
+
+update:
+  canaries: 1
+  max_in_flight: 3
+  serial: false
+  canary_watch_time: 1000-120000
+  update_watch_time: 1000-120000

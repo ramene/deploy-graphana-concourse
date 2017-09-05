@@ -1,0 +1,66 @@
+---
+name: vault
+
+instance_groups:
+- instances: ((VAULT_INSTANCES))
+  name: vault
+  networks: [{name: ((VAULT_NW_NAME)), static_ips: [((STATIC_IPS))], default: [dns, gateway]}]
+  persistent_disk_type: ((VAULT_DISK_TYPE))
+  vm_type: ((VAULT_VM_TYPE))
+  stemcell: trusty
+  azs: [((VAULT_AZ_NAME))]
+  jobs:
+  - name: consul
+    release: consul
+    provides:
+      consul_servers: { as: consul_leaders }
+    consumes:
+      consul_servers: { from: consul_leaders }
+    properties:
+      consul:
+        join_hosts: [((STATIC_IPS))]
+
+  - name: vault
+    release: vault
+    properties:
+      vault:
+        ha:
+          cluster_address: ((LOAD_BALANCER_URL))
+        storage:
+          use_consul: true
+        listener:
+          tcp:
+            port: ((VAULT_TCP_PORT))
+          tls:
+            certificate: ((vault-tls.certificate))
+            key: ((vault-tls.private_key))
+
+releases:
+- name: vault
+  version: latest
+- name: consul
+  version: latest
+
+stemcells:
+- alias: trusty
+  os: ubuntu-trusty
+  version: latest
+
+update:
+  canaries: 1
+  canary_watch_time: 1000-30000
+  max_in_flight: 50
+  serial: false
+  update_watch_time: 1000-30000
+
+variables:
+- name: vault-ca
+  type: certificate
+  options:
+    is_ca: true
+    common_name: vaultCA
+- name: vault-tls
+  type: certificate
+  options:
+    ca: vault-ca
+    common_name: vault

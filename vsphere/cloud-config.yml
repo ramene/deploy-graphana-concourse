@@ -1,0 +1,63 @@
+---
+azs:
+- name: ((concourse_az_name))
+  cloud_properties:
+    datacenters:
+    - clusters: [((vcenter_cluster)): { resource_pool: ((vcenter_rp)) }]
+
+networks:
+- name: ((concourse_nw_name))
+  type: manual
+  subnets:
+  - range: ((network_cidr))
+    dns: [((dns_servers))]
+    gateway: ((network_gateway))
+    azs: [((concourse_az_name))]
+    cloud_properties:
+      name: ((network_name))
+    reserved: [((reserved_ips))]
+    static: [((static_ips))]
+
+vm_types:
+- name: micro.disk
+  cloud_properties:
+    ram: 1024
+    cpu: 2
+    disk: 8192
+- name: small.disk
+  cloud_properties:
+    ram: 2048
+    cpu: 1
+    disk: 51200
+- name: medium.disk
+  cloud_properties:
+    ram: 4096
+    cpu: 2
+    disk: 32768
+- name: large.disk
+  cloud_properties:
+    ram: 8192
+    cpu: 2
+    disk: 102400
+- name: xlarge.disk
+  cloud_properties:
+    ram: 10240
+    cpu: 2
+    disk: 131072
+
+disk_types:
+- name: '10240'
+  disk_size: 10240
+  cloud_properties:
+    type: thick
+
+compilation:
+  workers: 1
+  network: ((concourse_nw_name))
+  az: ((concourse_az_name))
+  reuse_compilation_vms: true
+  vm_type: micro.disk
+  vm_extensions: []
+vm_extensions:
+- name: public_ip
+  cloud_properties: {}
